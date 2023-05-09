@@ -1,4 +1,4 @@
-package jks_trust_store
+package jks
 
 import (
 	"bufio"
@@ -24,14 +24,13 @@ func resourceTrustStore() *schema.Resource {
 		DeleteContext: resourceTrustStoreDelete,
 		Schema: map[string]*schema.Schema{
 			"certificates": {
-				Description: "CA certificates or chains to include in generated trust store; in PEM format.",
+				Description: "PEM formatted certificates or chains to include in generated trust store.",
 				Type:        schema.TypeList,
-				Required:    true,
+				Optional:    true,
+				ForceNew:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
-				MinItems: 1,
-				ForceNew: true,
 			},
 			"password": {
 				Description: "Password to secure trust store. Defaults to empty string.",
@@ -40,8 +39,13 @@ func resourceTrustStore() *schema.Resource {
 				Default:     "",
 				ForceNew:    true,
 			},
+			"timestamp": {
+				Description: "Timestamp of trust store creation in RFC3339 format.",
+				Type:        schema.TypeString,
+				Computed:    true,
+			},
 			"jks": {
-				Description: "JKS trust store data; base64 encoded.",
+				Description: "Base64 encoded JKS trust store data.",
 				Type:        schema.TypeString,
 				Computed:    true,
 			},
@@ -53,11 +57,13 @@ func resourceTrustStoreCreate(_ context.Context, d *schema.ResourceData, _ inter
 	var diags diag.Diagnostics
 
 	ks := keystore.New()
+	ts, err := time.Parse(time.RFC3339, d.Get("timestamp").(string))
+	if err != nil {
+		ts = time.Now()
+		d.Set("timestamp", ts)
+	}
 
 	chains := d.Get("certificates").([]interface{})
-	if len(chains) == 0 {
-		return diag.Errorf("Empty certificates")
-	}
 
 	for chainIdx, chain := range chains {
 		rest := []byte(strings.TrimSpace(chain.(string)))
@@ -83,7 +89,7 @@ func resourceTrustStoreCreate(_ context.Context, d *schema.ResourceData, _ inter
 		err := ks.SetTrustedCertificateEntry(
 			fmt.Sprintf("%d", chainIdx),
 			keystore.TrustedCertificateEntry{
-				CreationTime: time.Now(),
+				CreationTime: ts,
 				Certificate: keystore.Certificate{
 					Type:    "X.509",
 					Content: certDerData,
@@ -98,7 +104,7 @@ func resourceTrustStoreCreate(_ context.Context, d *schema.ResourceData, _ inter
 	var jksBuffer bytes.Buffer
 	jksWriter := bufio.NewWriter(&jksBuffer)
 
-	err := ks.Store(jksWriter, []byte(d.Get("password").(string)))
+	err = ks.Store(jksWriter, []byte(d.Get("password").(string)))
 	if err != nil {
 		diags = append(diags, diag.Errorf("Failed to generate JKS: %v", err)...)
 	}
@@ -134,3 +140,4 @@ func resourceTrustStoreDelete(_ context.Context, d *schema.ResourceData, _ inter
 
 	return diags
 }
+

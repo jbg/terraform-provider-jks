@@ -1,4 +1,4 @@
-package jks_trust_store
+package jks
 
 import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -8,7 +8,7 @@ import (
 func Provider() *schema.Provider {
 	return &schema.Provider{
 		ResourcesMap: map[string]*schema.Resource{
-			"jks_trust_store": resourceTrustStore(),
+			"jks": resourceTrustStore(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{},
 	}
