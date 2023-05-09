@@ -1,4 +1,4 @@
-# Terraform Provider JKS Trust Store Generator
+# Terraform provider for producing JKS stores
 
 Run the following command to build the provider
 
